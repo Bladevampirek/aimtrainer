@@ -1,0 +1,2123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bladevampirek's Sports Shooting Aim Trainer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --c-bg: #0b0f14;
+      --c-text: #e8eef6;
+      --c-panel: #0f1722;
+      --c-control: #121a24;
+      --c-border: #243246;
+      --c-border2: #1d2633;
+      --c-canvas: #070a0f;
+      --c-grid: rgba(255,255,255,0.05);
+      --c-vignette: rgba(0,0,0,0.55);
+      --c-accent: #78ffaA; /* green-ish */
+      --c-danger-border: #5a2a2a;
+      --c-danger-bg: #1a0d0d;
+
+      --c-threat-fill: rgba(30, 35, 45, 0.95);
+      --c-threat-edge: rgba(200,255,220,0.35);
+      --c-threat-zone: rgba(200,255,220,0.22);
+      --c-threat-dot: rgba(120,255,170,0.95);
+
+      --c-noshoot-fill: rgba(40, 36, 26, 0.95);
+      --c-noshoot-edge: rgba(255,210,90,0.70);
+      --c-noshoot-zone: rgba(255,210,90,0.22);
+      --c-noshoot-dot: rgba(255,210,90,0.95);
+
+      --c-miss-ring: rgba(255,80,80,0.95);
+      --c-crosshair: #ff2a2a;
+      --c-overlay: rgba(0,0,0,0.55);
+    }
+    body { margin:0; font-family: system-ui, Segoe UI, Arial, sans-serif; background:var(--c-bg); color:var(--c-text); }
+    header { padding:14px 16px; border-bottom:1px solid var(--c-border2); display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    header h1 { font-size:16px; margin:0; font-weight:700; letter-spacing:.2px; }
+    .panel { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    button, select, input {
+      background:var(--c-control); border:1px solid var(--c-border); color:var(--c-text);
+      padding:8px 10px; border-radius:10px; cursor:pointer;
+    }
+    input[type="range"] { padding:0; height: 30px; }
+    button:hover { border-color:color-mix(in srgb, var(--c-border) 65%, white 35%); }
+    .stat { padding:8px 10px; border:1px solid var(--c-border); border-radius:10px; background:var(--c-panel); }
+    .stat b { font-variant-numeric: tabular-nums; }
+    .stat input[type="checkbox"] { transform: translateY(1px); margin-right:8px; }
+    main { display:grid; grid-template-columns: 1fr 410px; gap:12px; padding:12px; }
+    #wrap { border:1px solid var(--c-border); border-radius:14px; overflow:hidden; background:var(--c-canvas); position:relative; }
+    canvas { display:block; width:100%; height:auto; touch-action:none; }
+    aside { border:1px solid var(--c-border); border-radius:14px; padding:12px; background:var(--c-panel); }
+    aside h2 { margin:0 0 8px; font-size:14px; }
+    .small { opacity:.85; font-size:12px; line-height:1.35; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 10px; }
+    .log { max-height:220px; overflow:auto; border:1px solid var(--c-border); border-radius:10px; padding:10px; background:color-mix(in srgb, var(--c-panel) 75%, black 25%); }
+    .log code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; white-space:pre-wrap; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--c-border); background:color-mix(in srgb, var(--c-panel) 75%, black 25%); font-size:12px; }
+    .danger { border-color:var(--c-danger-border); background:var(--c-danger-bg); }
+    @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+
+    
+    /* Fullscreen overlay toggle button (because header can be hidden in fullscreen) */
+    .fs-overlay { position: fixed; top: 12px; left: 12px; z-index: 10000; display:none; }
+    .fs-overlay button { padding:10px 12px; border-radius:12px; }
+    :fullscreen .fs-overlay { display:block; }
+
+    /* Fullscreen polish */
+    :fullscreen #wrap { height: 100vh; border-radius:0; border:0; }
+    :fullscreen canvas { width: 100vw; height: 100vh; }
+    :fullscreen header, :fullscreen aside { display:none; }
+    :fullscreen main { padding:0; grid-template-columns:1fr; }
+
+    /* Training cursor */
+    #wrap.training { cursor: none; }
+
+    /* Custom red + cursor */
+    .crosshair {
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+      transform: translate(-50%, -50%);
+    }
+    .crosshair::before,
+    .crosshair::after {
+      content: "";
+      position: absolute;
+      background: var(--c-crosshair);
+    }
+    .crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+    .crosshair::after  { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+  
+
+  #dqOverlay{
+    position:absolute;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    font-weight:900;
+    letter-spacing:0.08em;
+    font-size: clamp(34px, 6vw, 72px);
+    color: var(--c-accent, #ff3b3b);
+    text-shadow: 0 0 18px rgba(255,59,59,0.45);
+    background: rgba(0,0,0,0.35);
+    z-index: 50;
+    pointer-events:none;
+  }
+  #dqOverlay.show{
+    display:flex;
+    animation: dqFlash 0.7s linear 1;
+  }
+  @keyframes dqFlash{
+    0%{opacity:0;}
+    10%{opacity:1;}
+    30%{opacity:0.25;}
+    45%{opacity:1;}
+    65%{opacity:0.35;}
+    100%{opacity:0;}
+  }
+</style>
+</head>
+<body>
+
+<div id="fsOverlay" class="fs-overlay">
+  <button id="btnFsOverlay" title="Exit Fullscreen (and stop run)">Exit Fullscreen</button>
+</div>
+
+<header>
+  <h1>Bladevampirek's Sports Shooting Aim Trainer <span class="pill">Prototype</span></h1>
+
+  <div class="panel">
+    <button id="btnStart">Start Run</button>
+    <button id="btnStop" disabled>Stop</button>
+    <button id="btnReset">Reset</button>
+    <button id="btnFull">Fullscreen</button>
+
+    <label class="stat">Fullscreen Key: <b id="fsKeyLabel">Home</b></label>
+    <button id="btnBindFsKey">Bind</button>
+    <button id="btnClearFsKey" class="danger">Reset Key</button>
+
+    <label class="stat">Mode:
+      <select id="mode">
+        <option value="standard">Standard</option>
+        <option value="rapid" selected>Rapid-firing</option>
+      </select>
+    </label>
+
+    <label class="stat">Target Type:
+      <select id="targetType">
+        <option value="silhouette" selected>Silhouettes</option>
+        <option value="bullseye">Bullseye</option>
+      </select>
+    </label>
+
+    <label class="stat">Beep Delay (s):
+      <input id="beepDelay" type="number" min="0" max="10" step="0.1" value="2.5" style="width:70px" />
+    </label>
+
+    <label class="stat">Round Time:
+      <select id="dur">
+        <option value="30" selected>30 Seconds</option>
+        <option value="60">60 Seconds</option>
+      </select>
+    </label>
+
+    <label class="stat">Burst (s):
+      <select id="burstSec">
+        <option value="1">1.00</option>
+        <option value="1.06">1.06</option>
+        <option value="2" selected>2.00</option>
+        <option value="2.99">2.99</option>
+        <option value="3">3.00</option>
+        <option value="4">4.00</option>
+        <option value="5">5.00</option>
+      </select>
+    </label>
+
+    <label class="stat">Targets:
+      <input id="tcount" type="number" min="1" max="12" step="1" value="6" style="width:60px" />
+    </label>
+
+    <label class="stat">Target Size:
+      <select id="tScale">
+        <option value="0.75">Small</option>
+        <option value="1" selected>Normal</option>
+        <option value="1.25">Large</option>
+        <option value="1.5">XL</option>
+        <option value="1.75">XXL</option>
+        <option value="2">XXXL</option>
+      </select>
+    </label>
+
+    <label class="stat">Spawn:
+      <select id="spawnMode">
+        <option value="static">Static</option>
+        <option value="shuffle">Shuffle per threat-hit</option>
+        <option value="timer">Shuffle every 5s</option>
+        <option value="3">Shuffle every 3 seconds</option>
+        <option value="7">Shuffle every 7 seconds</option>
+        <option value="10">Shuffle every 10 seconds</option>
+      </select>
+    </label>
+
+    <label class="stat">Movement:
+      <select id="moveMode">
+        <option value="static" selected>Static</option>
+        <option value="ud">Up/Down</option>
+        <option value="lr">Left/Right</option>
+        <option value="patrol">Patrol</option>
+        <option value="zigzag">ZigZag</option>
+        <option value="depth">Back/Forward</option>
+        <option value="mix">Mix (2D + Depth)</option>
+        <option value="approach">Approach (charges you)</option>
+      </select>
+    </label>
+
+    <label class="stat">Move Speed:
+      <input id="moveSpeed" type="range" min="0" max="3" step="0.05" value="1.2" style="width:150px" />
+    </label>
+
+    <label class="stat">Move Amount:
+      <input id="moveAmp" type="range" min="0" max="220" step="1" value="90" style="width:160px" />
+    </label>
+
+    <label class="stat">Depth Speed:
+      <input id="depthSpeed" type="range" min="0" max="2.5" step="0.05" value="0.9" style="width:140px" />
+    </label>
+
+    <label class="stat">Depth Min:
+      <input id="depthMin" type="number" min="0.4" max="1" step="0.05" value="0.75" style="width:70px" />
+    </label>
+
+    <label class="stat">Depth Max:
+      <input id="depthMax" type="number" min="1" max="2.5" step="0.05" value="1.6" style="width:70px" />
+    </label>
+
+    <label class="stat">
+      <input type="checkbox" id="enableNoShoot">
+      Enable No-shoot
+    </label>
+
+    <label class="stat">No-shoot %:
+      <input id="noShootPct" type="number" min="0" max="40" step="1" value="15" style="width:60px">
+    </label>
+
+    <label class="stat">
+      <input type="checkbox" id="laserMode">
+      Laser Training Mode
+    </label>
+  </div>
+
+  <div class="panel">
+    <label class="stat">Time: <b id="timeLeft">—</b></label>
+    <label class="stat">Points: <b id="points">0</b></label>
+    <label class="stat">Shots: <b id="shots">0</b></label>
+    <label class="stat">Hits: <b id="hits">0</b></label>
+    <label class="stat">Misses: <b id="misses">0</b></label>
+    <label class="stat">Acc: <b id="acc">0%</b></label>
+    <label class="stat">Hit Factor: <b id="hf">0.00</b></label>
+    <label class="stat">Rounds: <b id="rounds">0</b></label>
+
+    <label class="stat">Threat Hits: <b id="threatHits">0</b></label>
+    <label class="stat">No-shoot Hits: <b id="noShootHits">0</b></label>
+
+    <label class="stat">Last Split: <b id="lastSplit">—</b> ms</label>
+    <label class="stat">Avg Split: <b id="avgSplit">—</b> ms</label>
+  </div>
+</header>
+
+<main>
+  <div id="wrap">
+    <canvas id="cv" width="1000" height="650"></canvas>
+  <div id="dqOverlay" aria-hidden="true">DISQUALIFIED</div>
+  </div>
+
+  <aside>
+    <h2>Trail + Splits</h2>
+    <div class="small">
+      <b>Laser Training Mode</b> shows your movement path during the run (and remains visible after the run ends).
+      <br><br>
+      <b>Standard Mode Rule:</b> targets stay hidden until the first start beep.
+      <br><br>
+      <b>Audio:</b> beep files only. Put these next to the HTML (optional):<br>
+      <span class="pill">beep_start.wav</span> <span class="pill">beep_end.wav</span><br>
+      If missing, it falls back to a simple generated beep.
+    </div>
+    <div class="log"><code id="splits">No splits yet.</code></div>
+    <div class="small" id="rapidWindow">Rapid window: —</div>
+
+    <h2>Run summary</h2>
+    <div class="small" id="summary">No run yet.</div>
+
+    <h2>Session history</h2>
+    <div class="log"><code id="history"></code></div>
+
+    <div class="row">
+      <button id="btnClearHist" class="danger">Clear History</button>
+      <button id="btnExport">Export JSON</button>
+    </div>
+
+
+    <h2>Theme</h2>
+    <div class="small">Customize colors. Saved automatically in your browser.</div>
+    <div class="row" id="themeRow">
+      <label class="stat">Background <input type="color" id="th_bg" value="#0b0f14"></label>
+      <label class="stat">Text <input type="color" id="th_text" value="#e8eef6"></label>
+      <label class="stat">Panel <input type="color" id="th_panel" value="#0f1722"></label>
+      <label class="stat">Controls <input type="color" id="th_control" value="#121a24"></label>
+      <label class="stat">Border <input type="color" id="th_border" value="#243246"></label>
+      <label class="stat">Accent <input type="color" id="th_accent" value="#78ffaa"></label>
+      <label class="stat">Threat Dot <input type="color" id="th_threatdot" value="#78ffaa"></label>
+      <label class="stat">No-shoot Dot <input type="color" id="th_noshootdot" value="#ffd25a"></label>
+      <label class="stat">Miss Ring <input type="color" id="th_miss" value="#ff5050"></label>
+      <label class="stat">Crosshair <input type="color" id="th_cross" value="#ff2a2a"></label>
+      <button id="btnThemeReset" class="danger">Reset Theme</button>
+    </div>
+
+    <div class="small">
+      Every mode: <b>delay → BEEP → timer starts</b>, and a lower tone beeps at the end.<br>
+      Clicks before the start beep are ignored (prep time).
+    </div>
+  </aside>
+</main>
+
+<div id="crosshair" class="crosshair"></div>
+
+<script>
+(() => {
+  // ---------- Utilities ----------
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const now = () => performance.now();
+  const fmt = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : "—";
+  const dist = (x1,y1,x2,y2) => Math.hypot(x1-x2, y1-y2);
+  const rand = (min, max) => Math.random() * (max - min) + min;
+
+
+  function drawShatterFX(cx, cy, s, alpha, p) {
+    // p: 0..1 progress
+    const R = (40 + 28 * p) * s;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.lineWidth = Math.max(1.2, 2.2 * s);
+    ctx.strokeStyle = "rgba(255,255,255,0.70)";
+    const rays = 12;
+    for (let i = 0; i < rays; i++) {
+      const ang = (Math.PI * 2) * (i / rays) + (i % 2 ? 0.10 : -0.06);
+      const len = R * (0.55 + (i % 4) * 0.18);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(ang) * len, cy + Math.sin(ang) * len);
+      ctx.stroke();
+    }
+    // debris dots
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    for (let i = 0; i < 14; i++) {
+      const ang = (i / 14) * Math.PI * 2 + rand(-0.12, 0.12);
+      const rr = R * rand(0.25, 0.95);
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr, Math.max(1.0, 2.0 * s), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  
+  // ---------- Theme (CSS variable driven + saved) ----------
+  const THEME_KEY = "bladevampirek_aimtrainer_theme_v1";
+  function getVar(name, fallback="") {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+  function setVar(name, value) { document.documentElement.style.setProperty(name, value); }
+  function loadTheme() {
+    try {
+      const t = JSON.parse(localStorage.getItem(THEME_KEY) || "null");
+      if (!t) return;
+      for (const [k,v] of Object.entries(t)) setVar(k, v);
+    } catch {}
+  }
+  function saveTheme(varsObj) {
+    try { localStorage.setItem(THEME_KEY, JSON.stringify(varsObj)); } catch {}
+  }
+
+// ---------- Audio (BEEPS ONLY; prefers files) ----------
+  let audioCtx = null;
+  let beepStartBuf = null;
+  let beepEndBuf = null;
+  let triedLoadBeeps = false;
+
+  function ensureAudioContext() {
+    if (audioCtx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { audioCtx = new AC(); } catch { audioCtx = null; }
+  }
+
+  async function tryLoadBeepFilesOnce() {
+    if (triedLoadBeeps) return;
+    triedLoadBeeps = true;
+    ensureAudioContext();
+    if (!audioCtx) return;
+
+    const fetchDecode = async (url) => {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("missing " + url);
+      const arr = await res.arrayBuffer();
+      return await audioCtx.decodeAudioData(arr);
+    };
+
+    try { beepStartBuf = await fetchDecode("beep_start.wav"); } catch {}
+    try { beepEndBuf   = await fetchDecode("beep_end.wav"); } catch {}
+  }
+
+  function playBuffer(buf, vol = 0.35) {
+    try {
+      if (!audioCtx || !buf) return false;
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      const g = audioCtx.createGain();
+      g.gain.value = vol;
+      src.connect(g); g.connect(audioCtx.destination);
+      src.start();
+      return true;
+    } catch { return false; }
+  }
+
+  function fallbackBeep(freq = 950, ms = 120, vol = 0.10) {
+    try {
+      if (!audioCtx) return;
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = "sine";
+      o.frequency.value = freq;
+      g.gain.value = vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      const t0 = audioCtx.currentTime;
+      o.start(t0);
+      o.stop(t0 + ms/1000);
+    } catch {}
+  }
+
+  async function startBeep() {
+    await tryLoadBeepFilesOnce();
+    if (playBuffer(beepStartBuf, 0.35)) return;
+    fallbackBeep(950, 120, 0.10);
+  }
+
+  async function endBeep() {
+    await tryLoadBeepFilesOnce();
+    if (playBuffer(beepEndBuf, 0.35)) return;
+    fallbackBeep(650, 140, 0.12);
+  }
+
+  // ---------- DOM ----------
+  const cv = document.getElementById("cv");
+  const ctx = cv.getContext("2d", { alpha:false });
+  const wrapEl = document.getElementById("wrap");
+  const crosshairEl = document.getElementById("crosshair");
+
+  const btnStart = document.getElementById("btnStart");
+  const btnStop  = document.getElementById("btnStop");
+  const btnReset = document.getElementById("btnReset");
+  const btnFull  = document.getElementById("btnFull");
+  const btnFsOverlay = document.getElementById("btnFsOverlay");
+  const btnClearHist = document.getElementById("btnClearHist");
+  const btnExport = document.getElementById("btnExport");
+
+  const modeEl = document.getElementById("mode");
+  const targetTypeEl = document.getElementById("targetType");
+  const beepDelayEl = document.getElementById("beepDelay");
+  const burstSecEl = document.getElementById("burstSec");
+  const durEl = document.getElementById("dur");
+  const tcountEl = document.getElementById("tcount");
+  const spawnModeEl = document.getElementById("spawnMode");
+  const tScaleEl = document.getElementById("tScale");
+
+  const moveModeEl = document.getElementById("moveMode");
+  const moveSpeedEl = document.getElementById("moveSpeed");
+  const moveAmpEl = document.getElementById("moveAmp");
+  const depthSpeedEl = document.getElementById("depthSpeed");
+  const depthMinEl = document.getElementById("depthMin");
+  const depthMaxEl = document.getElementById("depthMax");
+
+  const enableNoShootEl = document.getElementById("enableNoShoot");
+  const noShootPctEl = document.getElementById("noShootPct");
+
+  const laserModeEl = document.getElementById("laserMode");
+
+  const timeLeftEl = document.getElementById("timeLeft");
+  const pointsEl = document.getElementById("points");
+  const shotsEl = document.getElementById("shots");
+  const hitsEl = document.getElementById("hits");
+  const missesEl = document.getElementById("misses");
+  const accEl = document.getElementById("acc");
+  const hfEl = document.getElementById("hf");
+  const roundsEl = document.getElementById("rounds");
+  const threatHitsEl = document.getElementById("threatHits");
+  const noShootHitsEl = document.getElementById("noShootHits");
+
+  const lastSplitEl = document.getElementById("lastSplit");
+  const avgSplitEl = document.getElementById("avgSplit");
+  const splitsEl = document.getElementById("splits");
+  const rapidWindowEl = document.getElementById("rapidWindow");
+
+  const summaryEl = document.getElementById("summary");
+  const historyEl = document.getElementById("history");
+  // ---------- Shot sound (fires on accepted shots) ----------
+  const SHOT_SRC = "gun_pistol_shot_03.wav"; // keep this file next to the HTML
+  let shotPool = [];
+  let shotPoolIdx = 0;
+
+  function warmShotPool() {
+    if (shotPool.length) return;
+    try {
+      for (let i = 0; i < 6; i++) {
+        const a = new Audio(SHOT_SRC);
+        a.preload = "auto";
+        a.volume = 0.9;
+        shotPool.push(a);
+      }
+    } catch {}
+  }
+
+  function playShotSound() {
+    try {
+      if (!shotPool.length) warmShotPool();
+      const a = shotPool[shotPoolIdx % shotPool.length];
+      shotPoolIdx++;
+      a.currentTime = 0;
+      a.play().catch(()=>{});
+    } catch {}
+  }
+
+  // ---------- Shot sound (HTMLAudioElement, no gunshots in beeps) ----------
+  const shotAudioEl = document.getElementById("shotAudio");
+  function playShotSound() {
+    if (!shotAudioEl) return;
+    try {
+      // clone for rapid retrigger
+      const s = shotAudioEl.cloneNode();
+      s.volume = 0.9;
+      // play() must be user-gesture driven; we call from pointerdown when a shot is accepted.
+      s.play().catch(()=>{});
+    } catch {}
+  }
+
+  const fsKeyLabelEl = document.getElementById("fsKeyLabel");
+  const btnBindFsKey = document.getElementById("btnBindFsKey");
+  const btnClearFsKey = document.getElementById("btnClearFsKey");
+
+
+  
+  // ---------- Theme UI ----------
+  loadTheme(); // apply saved vars before reading values
+
+  const th_bg = document.getElementById("th_bg");
+  const th_text = document.getElementById("th_text");
+  const th_panel = document.getElementById("th_panel");
+  const th_control = document.getElementById("th_control");
+  const th_border = document.getElementById("th_border");
+  const th_accent = document.getElementById("th_accent");
+  const th_threatdot = document.getElementById("th_threatdot");
+  const th_noshootdot = document.getElementById("th_noshootdot");
+  const th_miss = document.getElementById("th_miss");
+  const th_cross = document.getElementById("th_cross");
+  const btnThemeReset = document.getElementById("btnThemeReset");
+
+  function cssToHex(color) {
+    // handles rgb(a) and hex; for rgb we approximate
+    const c = color.trim();
+    if (c.startsWith("#")) return c;
+    const m = c.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!m) return "#000000";
+    const r = (+m[1]).toString(16).padStart(2,"0");
+    const g = (+m[2]).toString(16).padStart(2,"0");
+    const b = (+m[3]).toString(16).padStart(2,"0");
+    return "#" + r + g + b;
+  }
+
+  function syncThemeInputsFromCSS() {
+    th_bg.value = cssToHex(getVar("--c-bg", "#0b0f14"));
+    th_text.value = cssToHex(getVar("--c-text", "#e8eef6"));
+    th_panel.value = cssToHex(getVar("--c-panel", "#0f1722"));
+    th_control.value = cssToHex(getVar("--c-control", "#121a24"));
+    th_border.value = cssToHex(getVar("--c-border", "#243246"));
+    th_accent.value = cssToHex(getVar("--c-accent", "#78ffaa"));
+    th_threatdot.value = cssToHex(getVar("--c-threat-dot", "#78ffaa"));
+    th_noshootdot.value = cssToHex(getVar("--c-noshoot-dot", "#ffd25a"));
+    th_miss.value = cssToHex(getVar("--c-miss-ring", "#ff5050"));
+    th_cross.value = cssToHex(getVar("--c-crosshair", "#ff2a2a"));
+  }
+
+  function applyThemeAndSave() {
+    setVar("--c-bg", th_bg.value);
+    setVar("--c-text", th_text.value);
+    setVar("--c-panel", th_panel.value);
+    setVar("--c-control", th_control.value);
+    setVar("--c-border", th_border.value);
+    setVar("--c-border2", th_border.value);
+    setVar("--c-accent", th_accent.value);
+    setVar("--c-threat-dot", th_threatdot.value);
+    setVar("--c-noshoot-dot", th_noshootdot.value);
+    setVar("--c-miss-ring", th_miss.value);
+    setVar("--c-crosshair", th_cross.value);
+
+    saveTheme({
+      "--c-bg": th_bg.value,
+      "--c-text": th_text.value,
+      "--c-panel": th_panel.value,
+      "--c-control": th_control.value,
+      "--c-border": th_border.value,
+      "--c-border2": th_border.value,
+      "--c-accent": th_accent.value,
+      "--c-threat-dot": th_threatdot.value,
+      "--c-noshoot-dot": th_noshootdot.value,
+      "--c-miss-ring": th_miss.value,
+      "--c-crosshair": th_cross.value
+    });
+
+    // re-render for canvas colors
+    render();
+  }
+
+  for (const el of [th_bg, th_text, th_panel, th_control, th_border, th_accent, th_threatdot, th_noshootdot, th_miss, th_cross]) {
+    el.addEventListener("input", applyThemeAndSave);
+  }
+
+  btnThemeReset.addEventListener("click", () => {
+    localStorage.removeItem(THEME_KEY);
+    document.documentElement.style.cssText = "";
+    syncThemeInputsFromCSS();
+    render();
+    summaryEl.textContent = "Theme reset.";
+  });
+
+  syncThemeInputsFromCSS();
+
+// ---------- No-shoot UI gating ----------
+  function updateNoShootUI() {
+    noShootPctEl.disabled = !enableNoShootEl.checked;
+    noShootPctEl.style.opacity = enableNoShootEl.checked ? "1" : "0.5";
+  }
+  enableNoShootEl.addEventListener("change", updateNoShootUI);
+  updateNoShootUI();
+
+  // ---------- Helpers ----------
+  function isTypingInField() {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA";
+  }
+
+  // ---------- Fullscreen ----------
+  async function enterFullscreen() {
+    const root = document.documentElement;
+    try {
+      if (!document.fullscreenElement) {
+        // Do not await in callers that must preserve "user gesture" in some browsers.
+        return root.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn("Enter fullscreen failed:", err);
+    }
+  }
+
+  async function exitFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        return document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn("Exit fullscreen failed:", err);
+    }
+  }
+
+  function toggleFullscreenStartStop() {
+    const entering = !document.fullscreenElement;
+
+    if (entering) {
+      // 1st press: enter fullscreen + start round
+      enterFullscreen();
+      if (typeof startRun === "function" && !armed && !running) {
+        startRun().catch(()=>{});
+      }
+    } else {
+      // 2nd press: stop round + exit fullscreen
+      if ((armed || running) && typeof stopRun === "function") stopRun();
+      exitFullscreen();
+    }
+  }
+
+// ---------- Silhouette Geometry ----------
+  const SIL = {
+    headR: 16,
+    headOffsetY: -58,
+    shoulderW: 74, shoulderH: 28, shoulderOffsetY: -40, shoulderRadius: 14,
+    torsoW: 56, torsoH: 86, torsoOffsetY: -18, torsoRadius: 18,
+    chest: { x: -18, y:  10, w: 36, h: 34, r: 10, pts: 5, label:"chest" },
+    torso: { x: -30, y:  -6, w: 60, h: 66, r: 14, pts: 3, label:"torso" },
+    body:  { x: -44, y: -70, w: 88, h: 160,r: 20, pts: 1, label:"body"  },
+    comOffsetY: 25
+  };
+
+  // ---------- State ----------
+  let targets = [];
+  let targetScale = 1;
+
+  let running = false;
+  let armed = false;
+  let startBeepTimeout = 0;
+
+  let startT = 0;
+  let endT = 0;
+  let rafId = 0;
+  let shuffleTimer = 0;
+
+  let mode = "standard";
+  let targetType = "silhouette";
+
+  let rapidActive = false;
+  let rapidCount = 0;
+  let rapidEndTimeout = 0;
+  let rapidWindowEndT = 0;
+
+  let lastRapidShotT = NaN;
+  let lastFrameT = 0;
+  let lastLaserSampleT = 0;
+
+  let run = null;
+
+  // History persistence
+  const KEY = "bladevampirek_aimtrainer_history_v1";
+  const loadHist = () => { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; } };
+  const saveHist = (arr) => localStorage.setItem(KEY, JSON.stringify(arr));
+  let history = loadHist();
+
+  // ---------- UI behaviors ----------
+  modeEl.addEventListener("change", () => {
+    const isRapid = modeEl.value === "rapid";
+    durEl.disabled = isRapid;
+    durEl.style.opacity = isRapid ? "0.5" : "1";
+  });
+
+  targetType = (targetTypeEl && targetTypeEl.value === "bullseye") ? "bullseye" : "silhouette";
+
+
+  targetTypeEl.addEventListener("change", () => {
+    targetType = targetTypeEl.value === "bullseye" ? "bullseye" : "silhouette";
+    render();
+  });
+
+  tScaleEl.addEventListener("change", () => {
+    targetScale = parseFloat(tScaleEl.value || "1");
+    const count = clamp(parseInt(tcountEl.value || "6", 10), 1, 12);
+    targets = spawnTargets(count, targetScale);
+    render();
+  });
+
+  // ---------- Coordinate helpers ----------
+  function canvasXYFromClient(clientX, clientY) {
+    const rect = cv.getBoundingClientRect();
+    const sx = cv.width / rect.width;
+    const sy = cv.height / rect.height;
+    const x = (clientX - rect.left) * sx;
+    const y = (clientY - rect.top) * sy;
+    return { x, y };
+  }
+
+  // ---------- Crosshair + Laser tracking ----------
+  function handlePointerMove(clientX, clientY) {
+    if (!running && !armed) return;
+
+    crosshairEl.style.left = clientX + "px";
+    crosshairEl.style.top  = clientY + "px";
+
+    if (!laserModeEl.checked) return;
+    if (!run) return;
+
+    const t = now();
+    if (t - lastLaserSampleT < 8) return;
+    lastLaserSampleT = t;
+
+    const p = canvasXYFromClient(clientX, clientY);
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
+    if (p.x < 0 || p.x > cv.width || p.y < 0 || p.y > cv.height) return;
+
+    const tMs = running ? (t - startT) : -1;
+    run.laserTrailAll.push({ x: p.x, y: p.y, tMs, tAbs: t });
+    if (run.laserTrailAll.length > 50000) run.laserTrailAll.shift();
+  }
+
+  cv.addEventListener("pointermove", (e) => handlePointerMove(e.clientX, e.clientY));
+  document.addEventListener("pointermove", (e) => {
+    if (!running && !armed) return;
+    const rect = cv.getBoundingClientRect();
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+    handlePointerMove(e.clientX, e.clientY);
+  });
+
+  // ---------- Splits UI ----------
+  function resetSplitsUI() {
+    lastSplitEl.textContent = "—";
+    avgSplitEl.textContent = "—";
+    splitsEl.textContent = "No splits yet.";
+    if (rapidWindowEl) rapidWindowEl.textContent = "Rapid window: —";
+  }
+
+  function updateSplitsUI() {
+    if (!run || !run.rapidSplitsMs || run.rapidSplitsMs.length === 0) {
+      resetSplitsUI();
+      return;
+    }
+    const a = run.rapidSplitsMs;
+    const sum = a.reduce((p,c)=>p+c,0);
+    const avg = sum / a.length;
+
+  function updateRapidWindowUI() {
+    if (!rapidWindowEl) return;
+    if (!run || run.mode !== "rapid" || !run.rapidShotTimesMs || run.rapidShotTimesMs.length === 0) {
+      rapidWindowEl.textContent = "Rapid window: —";
+      return;
+    }
+    const times = run.rapidShotTimesMs; // ms from start beep (startT)
+    const first = times[0];
+    const last  = times[times.length - 1];
+    const span  = Math.max(0, last - first);
+
+    // Show each shot's timestamp (ms from start beep) and total span between first & last shot.
+    rapidWindowEl.textContent =
+      `Rapid window: shots @ ${times.join(", ")} ms | total span (first→last): ${span} ms | last shot @ ${last} ms`;
+  }
+
+
+
+    lastSplitEl.textContent = String(a[a.length - 1]);
+    avgSplitEl.textContent = avg.toFixed(1);
+
+    const lines = [];
+    let line = "";
+    for (let i = 0; i < a.length; i++) {
+      const chunk = `${i+1}:${a[i]}`;
+      if ((line + "  " + chunk).length > 46) { lines.push(line.trim()); line = chunk; }
+      else line += "  " + chunk;
+    }
+    if (line.trim()) lines.push(line.trim());
+
+    const min = Math.min(...a);
+    const max = Math.max(...a);
+    lines.push("");
+    lines.push(`min=${min}ms  avg=${avg.toFixed(1)}ms  max=${max}ms`);
+
+    splitsEl.textContent = lines.join("\n");
+    updateRapidWindowUI();
+  }
+
+  // ---------- History ----------
+  function renderHistory() {
+    if (!history.length) { historyEl.textContent = "No saved runs yet."; return; }
+    historyEl.textContent = history.slice(-40).reverse().map((r, i) => {
+      const idx = history.length - i;
+      if (r.mode === "rapid") {
+        const avgSplit = (r.rapidSplitsMs && r.rapidSplitsMs.length)
+          ? (r.rapidSplitsMs.reduce((p,c)=>p+c,0) / r.rapidSplitsMs.length).toFixed(1)
+          : "—";
+        return [
+          `#${idx}  ${new Date(r.endedAt).toLocaleString()}`,
+          ` mode=rapid delay=${fmt(r.beepDelaySec,1)}s burst=${fmt(r.burstSec,2)}s targets=${r.targetCount} size=${r.targetScale}`,
+          ` rounds=${r.rounds} hits=${r.hits||0}/${r.shots||0} acc=${fmt((r.accuracy||0)*100,1)}% avgSplit=${avgSplit}ms`,
+          ` threatHits=${r.threatHits||0} noShootHits=${r.noShootHits||0}`,
+          ""
+        ].join("\n");
+      }
+      return [
+        `#${idx}  ${new Date(r.endedAt).toLocaleString()}`,
+        ` mode=standard delay=${fmt(r.beepDelaySec,1)}s dur=${r.durationSec}s targets=${r.targetCount} size=${r.targetScale}`,
+        ` points=${r.points} time=${fmt(r.elapsedSec,2)}s hitFactor=${fmt(r.hitFactor,2)}`,
+        ` shots=${r.shots} hits=${r.hits} acc=${fmt(r.accuracy*100,1)}%`,
+        ` threatHits=${r.threatHits||0} noShootHits=${r.noShootHits||0}`,
+        ""
+      ].join("\n");
+    }).join("\n");
+  }
+
+  // ---------- Target generation ----------
+  function spawnTargets(count, scale = 1) {
+    let padX = 140 * scale;
+    let padY = 160 * scale;
+    const minDist = 160 * scale;
+
+    const w = cv.width, h = cv.height;
+    padX = Math.min(padX, Math.max(20, (w / 2) - 30));
+    padY = Math.min(padY, Math.max(20, (h / 2) - 30));
+    const out = [];
+    let attempts = 0;
+
+    const noShootEnabled = enableNoShootEl.checked;
+    const pNoShoot = noShootEnabled ? (clamp(parseFloat(noShootPctEl.value || "0"), 0, 100) / 100) : 0;
+    let noShootCount = 0;
+    const maxNoShoot = noShootEnabled ? Math.max(1, Math.floor(count * 0.35)) : 0;
+
+        // Rapid‑Firing layout rule:
+    // All targets appear on an even horizontal line to measure cadence only (no zig-zag).
+    if (mode === "rapid" || mode === "rapidFiring" || mode === "rapid-firing") {
+      const y = h / 2;
+      const usableW = Math.max(1, (w - (padX * 2)));
+      const denom = Math.max(1, (count - 1));
+      for (let i = 0; i < count; i++) {
+        const x = padX + (usableW * (i / denom));
+        let kind = "threat";
+        if (noShootEnabled && Math.random() < pNoShoot && noShootCount < maxNoShoot) {
+          kind = "noShoot";
+          noShootCount++;
+        }
+        out.push({
+          baseX: x, baseY: y,
+          x, y,
+          phase: 0,
+          vx: 0,
+          vy: 0,
+          depth: 1.0,
+          vDepth: (Math.random() < 0.5 ? -1 : 1),
+          approachK: 0.75 + Math.random() * 1.5,
+          kind
+        });
+      }
+
+      // If No‑Shoot is enabled, guarantee at least 1 no‑shoot appears (unless maxNoShoot=0).
+      if (noShootEnabled && maxNoShoot > 0 && noShootCount === 0 && out.length > 0) {
+        out[Math.floor(Math.random() * out.length)].kind = "noShoot";
+        noShootCount = 1;
+      }
+      return out;
+    }
+
+// Burst-only layout rule:
+    // If 4 targets are selected in burst mode, place them evenly across a single horizontal line.
+    // This removes zig-zag patterns that add unnecessary aim time.
+    if (mode === "burst" && count === 4) {
+      const y = h / 2;
+      const usableW = Math.max(1, (w - (padX * 2)));
+      for (let i = 0; i < 4; i++) {
+        const x = padX + (usableW * (i / 3)); // 0/3, 1/3, 2/3, 3/3
+        let kind = "threat";
+        if (noShootEnabled && Math.random() < pNoShoot && noShootCount < maxNoShoot) {
+          kind = "noShoot";
+          noShootCount++;
+        }
+        out.push({
+          baseX: x, baseY: y,
+          x, y,
+          phase: Math.random() * Math.PI * 2,
+          vx: (Math.random() < 0.5 ? -1 : 1),
+          vy: (Math.random() < 0.5 ? -1 : 1),
+          depth: 1.0,
+          vDepth: (Math.random() < 0.5 ? -1 : 1),
+          kind
+        });
+      }
+      return out;
+    }
+
+    while (out.length < count && attempts < 6000) {
+      attempts++;
+      const x = rand(padX, w - padX);
+      const y = rand(padY, h - padY);
+      const ok = out.every(t => dist(x,y,t.baseX,t.baseY) > minDist);
+      if (!ok) continue;
+
+      let kind = "threat";
+      if (noShootEnabled && Math.random() < pNoShoot && noShootCount < maxNoShoot) {
+        kind = "noShoot";
+        noShootCount++;
+      }
+
+      out.push({
+        baseX: x, baseY: y,
+        x, y,
+        phase: Math.random() * Math.PI * 2,
+        vx: (Math.random() < 0.5 ? -1 : 1),
+        vy: (Math.random() < 0.5 ? -1 : 1),
+        depth: 1.0,
+        vDepth: (Math.random() < 0.5 ? -1 : 1),
+        kind
+      });
+    }
+    return out;
+  }
+
+  // ---------- Movement update ----------
+  function updateTargets(dt) {
+    // Rapid mode: keep targets perfectly level (no vertical drift / zig-zag)
+    if (mode === "rapid" && Array.isArray(targets)) {
+      const yLock = cv.height / 2;
+      for (const t of targets) { t.baseY = yLock; t.y = yLock; t.vy = 0; }
+    }
+
+    const moveMode = moveModeEl.value;
+    const speed = parseFloat(moveSpeedEl.value || "0");
+    const amp = parseFloat(moveAmpEl.value || "0");
+    const depthOn = (moveMode === "depth" || moveMode === "mix");
+    const depthSpeed = parseFloat(depthSpeedEl.value || "0");
+    const depthMin = clamp(parseFloat(depthMinEl.value || "0.75"), 0.4, 1.0);
+    const depthMax = clamp(parseFloat(depthMaxEl.value || "1.6"), 1.0, 2.5);
+
+    for (const t of targets) {
+      t.phase += dt * speed;
+      let ox = 0, oy = 0;
+
+      // Approach mode: targets "charge" toward you (depth decreases). If they reach you, it counts as a miss
+      // and that target respawns farther back with a new random approach speed.
+      if (moveMode === "approach") {
+        // Keep them steady laterally in this mode (aim challenge is cadence + timing, not zig-zag)
+        ox = 0; oy = 0;
+
+        // Initialize per-target speed multiplier if missing
+        if (typeof t.approachK !== "number") t.approachK = 0.75 + Math.random() * 1.5;
+
+        // Only advance during an active run (so standby doesn't cause surprise misses)
+        if (running) {
+          // If this target was hit, pause briefly before respawning far back.
+          // While paused, render a quick shatter effect (no drop).
+          if (t.pendingRespawn) {
+            // Freeze in place (no movement) during the pause.
+            if (now() >= (t.respawnAt || 0)) {
+              t.pendingRespawn = false;
+              t.respawnAt = 0;
+              t.shatterStart = 0;
+              respawnApproachTargetInPlace(t);
+            }
+            continue; // freeze during pause
+          }
+
+
+          // Move toward the player (smaller depth = closer)
+          t.depth += dt * depthSpeed * 0.65 * t.approachK;
+
+          // Reached the player: auto-miss + respawn farther back
+          if (t.depth >= depthMax) {
+            // Only "threat" targets count as an auto-miss when they reach you.
+            if (t.kind !== "noShoot" && run) run.autoMisses = (run.autoMisses || 0) + 1;
+            // Respawn farther back
+            t.depth = depthMin;
+            t.approachK = 0.75 + Math.random() * 1.5;
+
+            // New lane position
+            let padX2 = 150 * targetScale * t.depth;
+            let padY2 = 170 * targetScale * t.depth;
+            padX2 = Math.min(padX2, Math.max(20, (cv.width / 2) - 30));
+            padY2 = Math.min(padY2, Math.max(20, (cv.height / 2) - 30));
+            t.baseX = padX2 + Math.random() * (cv.width - padX2 * 2);
+            t.baseY = padY2 + Math.random() * (cv.height - padY2 * 2);
+          }
+        } else {
+          // Not running: keep depth stable and reasonable
+          t.depth = clamp(t.depth || 1.0, depthMin, depthMax);
+        }
+
+        // In approach mode we manage depth ourselves; skip the generic depthOn section below
+      }
+
+      if (moveMode === "ud") {
+        oy = Math.sin(t.phase) * amp;
+      } else if (moveMode === "lr") {
+        ox = Math.sin(t.phase) * amp;
+      } else if (moveMode === "patrol") {
+        t.baseX += t.vx * dt * speed * 85;
+        t.baseY += t.vy * dt * speed * 55;
+
+        const margin = 140 * targetScale * (t.depth || 1);
+        if (t.baseX < margin || t.baseX > cv.width - margin) t.vx *= -1;
+        if (t.baseY < margin || t.baseY > cv.height - margin) t.vy *= -1;
+
+      } else if (moveMode === "zigzag") {
+        ox = Math.sin(t.phase * 1.4) * amp;
+        oy = Math.sin(t.phase * 2.2) * (amp * 0.55);
+      } else if (moveMode === "mix") {
+        ox = Math.sin(t.phase * 1.1) * amp;
+        oy = Math.sin(t.phase * 1.7) * (amp * 0.65);
+      }
+
+      if (depthOn) {
+        t.depth += t.vDepth * dt * depthSpeed * 0.55;
+        if (t.depth < depthMin) { t.depth = depthMin; t.vDepth *= -1; }
+        if (t.depth > depthMax) { t.depth = depthMax; t.vDepth *= -1; }
+      } else {
+        if (moveMode !== "approach") t.depth = 1.0;
+      }
+
+      t.x = t.baseX + ox;
+      t.y = t.baseY + oy;
+
+      let padX = 150 * targetScale * (t.depth || 1);
+      let padY = 170 * targetScale * (t.depth || 1);
+      padX = Math.min(padX, Math.max(20, (cv.width / 2) - 30));
+      padY = Math.min(padY, Math.max(20, (cv.height / 2) - 30));
+      t.x = Math.max(padX, Math.min(cv.width - padX, t.x));
+      t.y = Math.max(padY, Math.min(cv.height - padY, t.y));
+    }
+  }
+
+  // ---------- Drawing helpers ----------
+  function roundRectPath(x, y, w, h, r) {
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function respawnOneApproachTarget(kind) {
+    // Spawns a single target far back for approach mode.
+    const w = cv.width, h = cv.height;
+    const depthMin = 0.55, depthMax = 1.25; // keep consistent with updateTargets
+    const depth = depthMin;
+
+    let padX = 150 * targetScale * depth;
+    let padY = 170 * targetScale * depth;
+    padX = Math.min(padX, Math.max(20, (w / 2) - 30));
+    padY = Math.min(padY, Math.max(20, (h / 2) - 30));
+
+    const x = padX + Math.random() * (w - padX * 2);
+    const y = padY + Math.random() * (h - padY * 2);
+
+    return {
+      baseX: x, baseY: y,
+      x, y,
+      phase: Math.random() * Math.PI * 2,
+      vx: (Math.random() < 0.5 ? -1 : 1),
+      vy: (Math.random() < 0.5 ? -1 : 1),
+      depth,
+      vDepth: (Math.random() < 0.5 ? -1 : 1),
+      approachK: 0.75 + Math.random() * 1.5,
+      kind: kind || "threat"
+    };
+  }
+
+
+  function respawnApproachTargetInPlace(t) {
+    // Instant respawn at the farthest depth (approach mode).
+    const w = cv.width, h = cv.height;
+    const depthMin = 0.55, depthMax = 1.25; // must match updateTargets
+    t.depth = depthMin;
+
+    // random approach speed
+    t.approachK = 0.75 + Math.random() * 1.5;
+
+    // new position
+    let padX = 150 * targetScale * t.depth;
+    let padY = 170 * targetScale * t.depth;
+    padX = Math.min(padX, Math.max(20, (w / 2) - 30));
+    padY = Math.min(padY, Math.max(20, (h / 2) - 30));
+
+    t.baseX = padX + Math.random() * (w - padX * 2);
+    t.baseY = padY + Math.random() * (h - padY * 2);
+    t.x = t.baseX;
+    t.y = t.baseY;
+
+    // reset any optional approach animation fields
+    t.approachState = "";
+    t.approachHitT = 0;
+    t.approachFallPx = 0;
+    t.shatterStart = 0;
+    t.shatterX = 0;
+    t.shatterY = 0;
+    t.fallStart = 0;
+    t.fallBaseY = undefined;
+    t.fallPx = 0;
+  }
+
+
+  function drawBG() {
+    ctx.fillStyle = getVar("--c-canvas", "#070a0f");
+    ctx.fillRect(0,0,cv.width,cv.height);
+
+    ctx.strokeStyle = getVar("--c-grid", "rgba(255,255,255,0.05)");
+    ctx.lineWidth = 1;
+    for (let x=0; x<cv.width; x+=50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cv.height); ctx.stroke(); }
+    for (let y=0; y<cv.height; y+=50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cv.width,y); ctx.stroke(); }
+
+    const g = ctx.createRadialGradient(cv.width/2, cv.height/2, 50, cv.width/2, cv.height/2, Math.max(cv.width,cv.height)/1.2);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,cv.width,cv.height);
+  }
+
+  function drawLaserTrail() {
+    if (!laserModeEl.checked) return;
+    if (!run || !run.laserTrailAll || run.laserTrailAll.length < 2) return;
+
+    const tAbs = now();
+    const during = running;
+    const recentWindowMs = 700;
+    const list = run.laserTrailAll;
+
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+
+    for (let i = 1; i < list.length; i++) {
+      const a = list[i-1], b = list[i];
+
+      if (during) {
+        const age = tAbs - b.tAbs;
+        if (age > recentWindowMs) continue;
+        const alpha = clamp(1 - (age / recentWindowMs), 0, 1);
+        ctx.strokeStyle = `rgba(255, 40, 40, ${alpha * 0.85})`;
+      } else {
+        if (b.tMs < 0 || a.tMs < 0) continue;
+        const total = Math.max(1, (run.elapsedSec || 1) * 1000);
+        const frac = clamp(b.tMs / total, 0, 1);
+        const alpha = 0.12 + 0.78 * frac;
+        ctx.strokeStyle = `rgba(255, 40, 40, ${alpha})`;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawSilhouette(t) {
+    const cx = t.x, cy = t.y;
+    const s = targetScale * (t.depth || 1);
+
+    const isNoShoot = (t.kind === "noShoot");
+    const fill = isNoShoot ? getVar("--c-noshoot-fill", "rgba(40,36,26,0.95)") : getVar("--c-threat-fill", "rgba(30,35,45,0.95)");
+    const edge = isNoShoot ? getVar("--c-noshoot-edge", "rgba(255,210,90,0.70)") : getVar("--c-threat-edge", "rgba(200,255,220,0.35)");
+    const zoneStroke = isNoShoot ? getVar("--c-noshoot-zone", "rgba(255,210,90,0.22)") : getVar("--c-threat-zone", "rgba(200,255,220,0.22)");
+
+    ctx.beginPath();
+    ctx.arc(cx, cy + SIL.headOffsetY * s, SIL.headR * s, 0, Math.PI*2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = edge; ctx.lineWidth = 2; ctx.stroke();
+
+    roundRectPath(
+      cx - (SIL.shoulderW * s)/2,
+      cy + SIL.shoulderOffsetY * s,
+      SIL.shoulderW * s,
+      SIL.shoulderH * s,
+      SIL.shoulderRadius * s
+    );
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = edge; ctx.lineWidth = 2; ctx.stroke();
+
+    roundRectPath(
+      cx - (SIL.torsoW * s)/2,
+      cy + SIL.torsoOffsetY * s,
+      SIL.torsoW * s,
+      SIL.torsoH * s,
+      SIL.torsoRadius * s
+    );
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = edge; ctx.lineWidth = 2; ctx.stroke();
+
+    roundRectPath(cx + SIL.chest.x * s, cy + SIL.chest.y * s, SIL.chest.w * s, SIL.chest.h * s, SIL.chest.r * s);
+    ctx.strokeStyle = zoneStroke; ctx.lineWidth = 2; ctx.stroke();
+
+    roundRectPath(cx + SIL.torso.x * s, cy + SIL.torso.y * s, SIL.torso.w * s, SIL.torso.h * s, SIL.torso.r * s);
+    ctx.strokeStyle = zoneStroke; ctx.lineWidth = 2; ctx.stroke();
+
+    roundRectPath(cx + SIL.body.x * s, cy + SIL.body.y * s, SIL.body.w * s, SIL.body.h * s, SIL.body.r * s);
+    ctx.strokeStyle = zoneStroke; ctx.lineWidth = 2; ctx.stroke();
+
+    if (isNoShoot) {
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx - 36*s, cy - 58*s, 10*s, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx + 36*s, cy - 58*s, 10*s, 0, Math.PI*2); ctx.stroke();
+    }
+
+    ctx.fillStyle = isNoShoot ? "rgba(255,210,90,0.90)" : "rgba(200,255,220,0.75)";
+    ctx.font = "12px ui-monospace, Menlo, Consolas, monospace";
+    ctx.fillText(isNoShoot ? "NO SHOOT" : "TARGET", cx - 36 * s, cy - 90 * s);
+  }
+
+  function drawBullseye(t) {
+    const cx = t.x, cy = t.y;
+    const s = targetScale * (t.depth || 1);
+
+    const isNoShoot = (t.kind === "noShoot");
+
+    // During the post-hit pause, the target is considered down; shots are misses.
+    if (moveModeEl && moveModeEl.value === "approach" && t && t.pendingRespawn) {
+      t = null;
+      res = { hit: false, points: 0, zone: "MISS" };
+    }
+
+    // Base colors (theme-aware)
+    const ring = isNoShoot ? getVar("--c-noshoot-edge", "rgba(255,210,90,0.85)") : getVar("--c-threat-edge", "rgba(200,255,220,0.80)");
+    const fill = isNoShoot ? getVar("--c-noshoot-fill", "rgba(40,36,26,0.95)") : getVar("--c-threat-fill", "rgba(30,35,45,0.95)");
+    const center = isNoShoot ? getVar("--c-ns-dot", "#ffd166") : getVar("--c-threatdot", "#ff3b3b");
+
+    const R = Math.max(22, 38 * s);
+
+    ctx.save();
+    ctx.lineWidth = Math.max(2, 3 * s);
+
+    // outer fill
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    // rings
+    ctx.strokeStyle = ring;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.70, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.40, 0, Math.PI*2); ctx.stroke();
+
+    // center dot
+    ctx.fillStyle = center;
+    ctx.beginPath(); ctx.arc(cx, cy, Math.max(5, R * 0.12), 0, Math.PI*2); ctx.fill();
+
+    // No-shoot cross overlay (visual clarity)
+    if (isNoShoot) {
+      ctx.strokeStyle = "rgba(255, 210, 90, 0.95)";
+      ctx.lineWidth = Math.max(3, 4 * s);
+      ctx.beginPath();
+      ctx.moveTo(cx - R*0.8, cy - R*0.8);
+      ctx.lineTo(cx + R*0.8, cy + R*0.8);
+      ctx.moveTo(cx + R*0.8, cy - R*0.8);
+      ctx.lineTo(cx - R*0.8, cy + R*0.8);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = isNoShoot ? "rgba(255,210,90,0.95)" : "rgba(200,255,220,0.75)";
+    ctx.font = "12px ui-monospace, Menlo, Consolas, monospace";
+    ctx.fillText(isNoShoot ? "NO SHOOT" : "TARGET", cx - R, cy - R - 10 * s);
+
+    ctx.restore();
+  }
+
+
+  function drawBulletHole(s) {
+    if (s.hit) {
+      ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(0,0,0,0.78)"; ctx.fill();
+
+      ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI*2);
+      ctx.fillStyle = s.noShoot ? getVar("--c-noshoot-dot", "rgba(255,210,90,0.95)") : getVar("--c-threat-dot", "rgba(120,255,170,0.95)");
+      ctx.fill();
+
+      ctx.beginPath(); ctx.arc(s.x, s.y, 10, 0, Math.PI*2);
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 2; ctx.stroke();
+
+      if ((s.count || 1) > 1) {
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.font = "14px ui-monospace, Menlo, Consolas, monospace";
+        ctx.fillText(String(s.count) + "x", s.x + 12, s.y - 10);
+      }
+      return;
+    }
+
+    ctx.beginPath(); ctx.arc(s.x, s.y, 9, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(0,0,0,0.70)"; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(s.x, s.y, 13, 0, Math.PI*2);
+    ctx.strokeStyle = getVar("--c-miss-ring", "rgba(255,80,80,0.95)");
+    ctx.lineWidth = 3; ctx.stroke();
+
+    if ((s.count || 1) > 1) {
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.font = "14px ui-monospace, Menlo, Consolas, monospace";
+      ctx.fillText(String(s.count) + "x", s.x + 14, s.y - 12);
+    }
+  }
+
+  function drawShots() {
+    if (!run) return;
+    const marks = (Array.isArray(run.renderMarks) && run.renderMarks.length) ? run.renderMarks : run.shotLog;
+    for (const s of marks) drawBulletHole(s);
+  }
+
+  function drawOverlay() {
+    if (!armed || !run) return;
+
+    const left = Math.max(0, (run.armedBeepAtT - now()) / 1000);
+    ctx.fillStyle = getVar("--c-overlay", "rgba(0,0,0,0.55)");
+    ctx.fillRect(0,0,cv.width,cv.height);
+
+    // STANDBY label
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = "72px ui-monospace, Menlo, Consolas, monospace";
+    ctx.fillText("STANDBY", cv.width/2, cv.height/2 - 92);
+
+    // Countdown
+    ctx.fillStyle = getVar("--c-accent", "#78ffaa");
+
+    ctx.font = "56px ui-monospace, Menlo, Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(left.toFixed(1), cv.width/2, cv.height/2 - 18);
+
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "16px ui-monospace, Menlo, Consolas, monospace";
+    ctx.fillText("WAIT FOR BEEP", cv.width/2, cv.height/2 + 38);
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+  }
+
+  function render() {
+    drawBG();
+    drawLaserTrail();
+
+    // Standard mode: hide targets until first beep (i.e., while ARMED)
+    const hideTargetsUntilBeep = (armed && run && run.mode === "standard");
+    if (!hideTargetsUntilBeep) {
+
+      for (const t of targets) {
+        (targetType === "bullseye" ? drawBullseye(t) : drawSilhouette(t));
+
+        if (moveModeEl && moveModeEl.value === "approach" && t.pendingRespawn) {
+          const p = clamp((now() - (t.shatterStart || now())) / 250, 0, 1); // 250ms shatter
+          const s = targetScale * (t.depth || 1);
+          drawShatterFX(t.shatterX || t.x, t.shatterY || t.y, s, 1 - p * 0.15, p);
+        }
+      }
+
+    }
+
+    drawShots();
+    drawOverlay();
+
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "14px ui-monospace, Menlo, Consolas, monospace";
+    ctx.fillText("Aim Trainer // Bladevampirek", 14, 22);
+
+    if (armed) {
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.fillText("ARMED (waiting for BEEP)", 14, 42);
+    } else if (running) {
+      ctx.fillStyle = "rgba(120,255,170,0.85)";
+      ctx.fillText("RUNNING", 14, 42);
+    }
+  }
+
+  // ---------- Scoring ----------
+  function inRect(rx, ry, rw, rh, x, y) { return (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh); }
+
+  function scoreHitSilhouette(t, x, y) {
+    const cx = t.x, cy = t.y;
+    const s = targetScale * (t.depth || 1);
+    const comx = cx, comy = cy + SIL.comOffsetY * s;
+
+    if (inRect(cx + SIL.chest.x * s, cy + SIL.chest.y * s, SIL.chest.w * s, SIL.chest.h * s, x, y))
+      return { points: SIL.chest.pts, radius: dist(x,y,comx,comy), zone: SIL.chest.label, hit:true };
+
+    if (inRect(cx + SIL.torso.x * s, cy + SIL.torso.y * s, SIL.torso.w * s, SIL.torso.h * s, x, y))
+      return { points: SIL.torso.pts, radius: dist(x,y,comx,comy), zone: SIL.torso.label, hit:true };
+
+    const inBodyRect = inRect(cx + SIL.body.x * s, cy + SIL.body.y * s, SIL.body.w * s, SIL.body.h * s, x, y);
+    const inHead = dist(x,y, cx, cy + SIL.headOffsetY * s) <= SIL.headR * s;
+    const inTorsoShape = inRect(cx - (SIL.torsoW * s)/2, cy + SIL.torsoOffsetY * s, SIL.torsoW * s, SIL.torsoH * s, x, y);
+    const inShouldersShape = inRect(cx - (SIL.shoulderW * s)/2, cy + SIL.shoulderOffsetY * s, SIL.shoulderW * s, SIL.shoulderH * s, x, y);
+
+    if (inBodyRect || inHead || inTorsoShape || inShouldersShape)
+      return { points: SIL.body.pts, radius: dist(x,y,comx,comy), zone: SIL.body.label, hit:true };
+
+    return { points: 0, radius: dist(x,y,comx,comy), zone: "miss", hit:false };
+  }
+
+  // ---------- Stats ----------
+  function recomputeStats() {
+    const shots = run ? run.shotLog.length : 0;
+    const threatHits = run ? (run.threatHits || 0) : 0;
+    const noShootHits = run ? (run.noShootHits || 0) : 0;
+    const hits = threatHits + noShootHits;
+    const autoMisses = run ? (run.autoMisses || 0) : 0;
+    const misses = Math.max(0, shots - hits) + autoMisses;
+    const points = run ? run.points : 0;
+
+    let elapsed = 0;
+    if (running) elapsed = (now() - startT) / 1000;
+    else if (run) elapsed = run.elapsedSec || 0;
+
+    const acc = shots ? hits / shots : 0;
+    const hf = elapsed > 0 ? points / elapsed : 0;
+
+    pointsEl.textContent = points;
+    shotsEl.textContent = shots;
+    hitsEl.textContent = hits;
+    missesEl.textContent = misses;
+    accEl.textContent = (acc*100).toFixed(1) + "%";
+    hfEl.textContent = hf.toFixed(2);
+    roundsEl.textContent = String(rapidCount || 0);
+
+    threatHitsEl.textContent = String(threatHits);
+    noShootHitsEl.textContent = String(noShootHits);
+
+    updateSplitsUI();
+
+    if (armed && run) {
+      const left = Math.max(0, (run.armedBeepAtT - now()) / 1000);
+      timeLeftEl.textContent = left.toFixed(2) + "s";
+      return;
+    }
+
+    if (running) {
+      const left = (mode === "rapid")
+        ? Math.max(0, (rapidWindowEndT - now()) / 1000)
+        : Math.max(0, (endT - now()) / 1000);
+      timeLeftEl.textContent = left.toFixed(2) + "s";
+    } else {
+      timeLeftEl.textContent = "—";
+    }
+  }
+
+  function finalizeRunCommon() {
+    if (!run) return;
+    run.elapsedSec = Math.max(0, (now() - startT) / 1000);
+    run.shots = run.shotLog.length;
+    run.hits = (run.threatHits || 0) + (run.noShootHits || 0);
+    run.accuracy = run.shots ? (run.hits / run.shots) : 0;
+
+    const radii = run.shotLog.filter(s => s.hit).map(s => s.radius);
+    run.avgRadius = radii.length ? radii.reduce((a,b)=>a+b,0) / radii.length : 0;
+
+    run.hitFactor = run.elapsedSec > 0 ? (run.points / run.elapsedSec) : 0;
+  }
+
+  function finalizeStandardRun() {
+    finalizeRunCommon();
+    run.endedAt = Date.now();
+    summaryEl.innerHTML =
+      `<b>Completed (Standard).</b><br>` +
+      `Points: <b>${run.points}</b><br>` +
+      `Time: <b>${fmt(run.elapsedSec,2)}s</b><br>` +
+      `Hit Factor: <b>${fmt(run.hitFactor,2)}</b><br>` +
+      `Hits: <b>${run.hits}</b> / ${run.shots} (${fmt(run.accuracy*100,1)}%)<br>` +
+      `Threat Hits: <b>${run.threatHits}</b><br>` +
+      `No-shoot Hits: <b>${run.noShootHits}</b> (−${run.noShootHits*10} pts)<br>` +
+      `Avg Radius: <b>${fmt(run.avgRadius,1)}px</b>`;
+  }
+
+  function finalizeRapidRun() {
+    finalizeRunCommon();
+    run.endedAt = Date.now();
+    run.rounds = rapidCount;
+    run.roundsPerSec = run.burstSec > 0 ? rapidCount / run.burstSec : 0;
+
+    const splits = run.rapidSplitsMs || [];
+    const avgSplit = splits.length ? (splits.reduce((p,c)=>p+c,0) / splits.length) : NaN;
+    const minSplit = splits.length ? Math.min(...splits) : NaN;
+    const maxSplit = splits.length ? Math.max(...splits) : NaN;
+
+    summaryEl.innerHTML =
+      `<b>Rapid-firing complete.</b><br>` +
+      `Rounds: <b>${rapidCount}</b><br>` +
+      `Burst: <b>${fmt(run.burstSec,2)}s</b><br>` +
+      `Rate: <b>${fmt(run.roundsPerSec,2)} clicks/sec</b><br>` +
+      `Hits: <b>${run.hits}</b> / ${run.shots} (${fmt(run.accuracy*100,1)}%)<br>` +
+      `Threat Hits: <b>${run.threatHits}</b><br>` +
+      `No-shoot Hits: <b>${run.noShootHits}</b> (−${run.noShootHits*10} pts)<br>` +
+      `Splits (ms): min <b>${fmt(minSplit,0)}</b>, avg <b>${fmt(avgSplit,1)}</b>, max <b>${fmt(maxSplit,0)}</b>`;
+  }
+
+  // ---------- Loop ----------
+  function loop() {
+    if (!armed && !running) return;
+
+    const t = now();
+    const dt = lastFrameT ? (t - lastFrameT) / 1000 : 0;
+    lastFrameT = t;
+
+    if (running) updateTargets(dt);
+
+    if (running && mode !== "rapid" && t >= endT) {
+      endBeep().then(()=>{});
+      stopRun();
+      return;
+    }
+
+    render();
+    recomputeStats();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // ---------- Start/Stop/Reset ----------
+  function startCrosshair() {
+    wrapEl.classList.add("training");
+    crosshairEl.style.display = "block";
+  }
+  function stopCrosshair() {
+    wrapEl.classList.remove("training");
+    crosshairEl.style.display = "none";
+  }
+
+  // ---------- Run control ----------
+  function startRunInternal() {
+    if (startBeepTimeout) { clearTimeout(startBeepTimeout); startBeepTimeout = 0; }
+    if (shuffleTimer) { clearInterval(shuffleTimer); shuffleTimer = 0; }
+    if (rapidEndTimeout) { clearTimeout(rapidEndTimeout); rapidEndTimeout = 0; }
+
+    mode = modeEl.value;
+    targetType = (targetTypeEl && targetTypeEl.value === "bullseye") ? "bullseye" : "silhouette";
+    targetScale = parseFloat(tScaleEl.value || "1");
+
+    rapidActive = false;
+    rapidCount = 0;
+    lastRapidShotT = NaN;
+    lastFrameT = 0;
+    lastLaserSampleT = 0;
+
+    const targetCount = clamp(parseInt(tcountEl.value || "6", 10), 1, 12);
+    const spawnMode = spawnModeEl.value;
+    const beepDelaySec = clamp(parseFloat(beepDelayEl.value || "2.5"), 0, 10);
+
+    const durationSec = (mode === "rapid") ? 0 : parseInt(durEl.value, 10);
+    const burstSec = (mode === "rapid") ? clamp(parseFloat(burstSecEl.value || "2"), 0.25, 5) : 0;
+
+    run = {
+      version: 4,
+      mode,
+      beepDelaySec,
+      durationSec,
+      burstSec,
+      targetCount,
+      spawnMode,
+      targetScale,
+      points: 0,
+      autoMisses: 0,
+      elapsedSec: 0,
+      shotLog: [],
+      renderMarks: [],
+      shots: 0,
+      hits: 0,
+      threatHits: 0,
+      noShootHits: 0,
+      accuracy: 0,
+      avgRadius: 0,
+      hitFactor: 0,
+      startedAt: Date.now(),
+      endedAt: null,
+      rapidShotTimesMs: [],
+      rapidSplitsMs: [],
+      laserTrailAll: [],
+      armedBeepAtT: 0
+    };
+
+    targets = spawnTargets(targetCount, targetScale);
+    resetSplitsUI();
+
+    armed = true;
+    running = false;
+
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+
+    startCrosshair();
+
+    run.armedBeepAtT = now() + beepDelaySec * 1000;
+    summaryEl.textContent = `Get ready… beep in ${beepDelaySec.toFixed(1)}s`;
+
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+
+    startBeepTimeout = setTimeout(async () => {
+      if (!armed) return;
+
+      armed = false;
+      running = true;
+      startT = now();
+      await startBeep();
+
+      if (mode === "standard") {
+        endT = startT + durationSec * 1000;
+        summaryEl.textContent = "BEEP! Go!";
+
+        if (spawnMode === "timer") {
+          shuffleTimer = setInterval(() => {
+            targets = spawnTargets(targetCount, targetScale);
+          }, 5000);
+        }
+        return;
+      }
+
+      rapidActive = true;
+      rapidWindowEndT = startT + burstSec * 1000;
+      summaryEl.textContent = `BEEP! Fire! (${burstSec.toFixed(2)}s)`;
+
+      rapidEndTimeout = setTimeout(async () => {
+        await endBeep();
+        rapidActive = false;
+        stopRun();
+      }, burstSec * 1000);
+
+    }, beepDelaySec * 1000);
+  }
+
+  async function startRun() {
+    ensureAudioContext();
+    // load beep files lazily on first user gesture
+    await tryLoadBeepFilesOnce();
+    startRunInternal();
+  }
+
+  function stopRun() {
+    if (startBeepTimeout) { clearTimeout(startBeepTimeout); startBeepTimeout = 0; }
+    if (shuffleTimer) { clearInterval(shuffleTimer); shuffleTimer = 0; }
+    if (rapidEndTimeout) { clearTimeout(rapidEndTimeout); rapidEndTimeout = 0; }
+
+    const wasArmed = armed;
+    const wasRunning = running;
+
+    armed = false;
+    running = false;
+    rapidActive = false;
+
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+
+    stopCrosshair();
+
+    cancelAnimationFrame(rafId);
+    rafId = 0;
+
+    if (wasArmed && !wasRunning) {
+      summaryEl.textContent = "Canceled before beep.";
+      render(); recomputeStats();
+      return;
+    }
+
+    if (!run) { render(); recomputeStats(); return; }
+
+    if (mode === "rapid") finalizeRapidRun();
+    else finalizeStandardRun();
+
+    history.push(run);
+    saveHist(history);
+    renderHistory();
+
+    render(); recomputeStats();
+  }
+
+  function resetAll() {
+    if (startBeepTimeout) { clearTimeout(startBeepTimeout); startBeepTimeout = 0; }
+    if (shuffleTimer) { clearInterval(shuffleTimer); shuffleTimer = 0; }
+    if (rapidEndTimeout) { clearTimeout(rapidEndTimeout); rapidEndTimeout = 0; }
+
+    armed = false;
+    running = false;
+    rapidActive = false;
+    rapidCount = 0;
+    lastRapidShotT = NaN;
+    lastFrameT = 0;
+    lastLaserSampleT = 0;
+
+    cancelAnimationFrame(rafId);
+    rafId = 0;
+
+    run = null;
+
+    targetScale = parseFloat(tScaleEl.value || "1");
+    targets = spawnTargets(clamp(parseInt(tcountEl.value || "6", 10), 1, 12), targetScale);
+
+    pointsEl.textContent = "0";
+    shotsEl.textContent = "0";
+    hitsEl.textContent = "0";
+    missesEl.textContent = "0";
+    accEl.textContent = "0%";
+    hfEl.textContent = "0.00";
+    roundsEl.textContent = "0";
+    threatHitsEl.textContent = "0";
+    noShootHitsEl.textContent = "0";
+    timeLeftEl.textContent = "—";
+    summaryEl.textContent = "Reset. Ready.";
+    resetSplitsUI();
+
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+
+    stopCrosshair();
+    render();
+  }
+
+  
+  // Standby disqualification (shots during "Get ready…" window)
+  let dqInProgress = false;
+  const dqEl = document.getElementById("dqOverlay");
+
+  function disqualifyAndRestart() {
+    if (dqInProgress) return;
+    dqInProgress = true;
+
+    if (dqEl) {
+      dqEl.classList.remove("show"); // restart animation
+      // force reflow
+      void dqEl.offsetWidth;
+      dqEl.classList.add("show");
+    }
+    summaryEl.textContent = "Disqualified: shot during standby. Restarting…";
+
+    // Cancel current arm/run without saving history
+    stopRun();
+
+    // Restart the round after the flash
+    setTimeout(() => {
+      if (dqEl) dqEl.classList.remove("show");
+      dqInProgress = false;
+      // Keep fullscreen state; just re-arm the round
+      startRun().catch(()=>{});
+    }, 700);
+  }
+
+// ---------- Shooting ----------
+  function recordRapidSplit() {
+    const t = now();
+    if (!Number.isFinite(lastRapidShotT)) {
+      lastRapidShotT = t;
+      run.rapidShotTimesMs.push(Math.round(t - startT));
+      return;
+    }
+    const split = Math.max(0, Math.round(t - lastRapidShotT));
+    lastRapidShotT = t;
+
+    run.rapidShotTimesMs.push(Math.round(t - startT));
+    run.rapidSplitsMs.push(split);
+  }
+
+  function logScoredShot(x, y) {
+    let bestIdx = 0, bestD = Infinity;
+    for (let i=0; i<targets.length; i++) {
+      const d = dist(x,y,targets[i].x,targets[i].y);
+      if (d < bestD) { bestD = d; bestIdx = i; }
+    }
+    let t = targets[bestIdx];
+    const isNoShoot = (t.kind === "noShoot");
+
+    let res = scoreHitSilhouette(t, x, y);
+    const tMs = now() - startT;
+
+    if (res.hit) {
+      if (isNoShoot) run.noShootHits++;
+      else run.threatHits++;
+    }
+
+    // Approach mode: slight pause on hit, then respawn far back.
+    // During the pause, render a quick shatter effect (no drop).
+    if (moveModeEl && moveModeEl.value === "approach" && res.hit && t) {
+      t.pendingRespawn = true;
+      t.respawnAt = now() + 250; // ms
+      t.shatterStart = now();    // ms
+      t.shatterX = x;
+      t.shatterY = y;
+    }
+
+
+
+    if (enableNoShootEl.checked && isNoShoot && res.hit) run.points -= 10;
+    else run.points += res.points;
+
+    run.shotLog.push({
+      x, y, tMs,
+      hit: res.hit,
+      points: res.points,
+      radius: res.radius,
+      zone: res.zone,
+      targetIndex: bestIdx,
+      noShoot: isNoShoot
+    });
+
+    // Aggregate visible bullet holes: if a new hole lands near an existing visible hole, increment its multiplier.
+    if (!Array.isArray(run.renderMarks)) run.renderMarks = [];
+    const THRESH_PX = 9;
+    let found = null;
+    for (const mk of run.renderMarks) {
+      const dx = mk.x - x, dy = mk.y - y;
+      if ((dx*dx + dy*dy) <= THRESH_PX*THRESH_PX) { found = mk; break; }
+    }
+    if (found) {
+      found.count = (found.count || 1) + 1;
+      found.hit = !!res.hit;
+      found.noShoot = !!isNoShoot;
+      found.points = res.points;
+      found.radius = res.radius;
+      found.zone = res.zone;
+      found.tMs = tMs;
+    } else {
+      run.renderMarks.push({
+        x, y, tMs,
+        hit: res.hit,
+        points: res.points,
+        radius: res.radius,
+        zone: res.zone,
+        targetIndex: bestIdx,
+        noShoot: isNoShoot,
+        count: 1
+      });
+    }
+
+    if (spawnModeEl.value === "shuffle" && res.hit && !isNoShoot) {
+      targets = spawnTargets(run.targetCount, targetScale);
+    }
+
+    if (!res.hit) summaryEl.textContent = "MISS!";
+    else if (isNoShoot) summaryEl.textContent = "NO SHOOT HIT (−10)!";
+  }
+
+  function onShotCanvas(x, y) {
+    if (!run) return;
+
+    if (armed && !running) {
+      disqualifyAndRestart();
+      return;
+    }
+    if (!running) return;
+
+    // Shot accepted
+    playShotSound();
+
+    // Shot accepted
+    playShotSound();
+
+    if (mode === "rapid") {
+      if (!(rapidActive && now() <= rapidWindowEndT)) return;
+      rapidCount++;
+      roundsEl.textContent = String(rapidCount);
+      recordRapidSplit();
+    }
+
+    logScoredShot(x, y);
+
+    render();
+    recomputeStats();
+  }
+
+  cv.addEventListener("pointerdown", (evt) => {
+    evt.preventDefault();
+    const p = canvasXYFromClient(evt.clientX, evt.clientY);
+    if (p.x < 0 || p.x > cv.width || p.y < 0 || p.y > cv.height) return;
+    onShotCanvas(p.x, p.y);
+  });
+
+  // ---------- Buttons ----------
+  btnStart.addEventListener("click", () => startRun().catch(()=>{}));
+  btnStop.addEventListener("click", stopRun);
+  btnReset.addEventListener("click", resetAll);
+
+  // Fullscreen button: enter fullscreen, then start after 0.5s (prep time)
+  // 2nd press exits fullscreen and stops the run (if running/armed).
+  btnFull.addEventListener("click", () => {
+    const entering = !document.fullscreenElement;
+
+    if (entering) {
+      enterFullscreen();
+
+      // Start after 500ms (gives the player time to settle in fullscreen)
+      setTimeout(() => {
+        if (typeof startRun === "function" && !armed && !running) {
+          startRun().catch(()=>{});
+        }
+      }, 500);
+    } else {
+      if ((armed || running) && typeof stopRun === "function") stopRun();
+      exitFullscreen();
+    }
+  });
+
+  // Fullscreen overlay exit button: always stop + exit
+  btnFsOverlay.addEventListener("click", () => {
+    if ((armed || running) && typeof stopRun === "function") stopRun();
+    exitFullscreen();
+  });
+
+
+  btnClearHist.addEventListener("click", () => {
+    history = [];
+    saveHist(history);
+    renderHistory();
+    summaryEl.textContent = "History cleared.";
+  });
+
+  btnExport.addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(history, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bladevampirek_aimtrainer_history.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  // ---------- Fullscreen key binding (REINSTALLED) ----------
+  (function(){
+    const STORAGE = "bladevampirek_fullscreen_key_v3";
+    let boundCode = "Home";
+    try { boundCode = localStorage.getItem(STORAGE) || "Home"; } catch {}
+
+    const btnBind = document.getElementById("btnBindFsKey");
+    const btnClear = document.getElementById("btnClearFsKey");
+    const label = document.getElementById("fsKeyLabel");
+    const summary = document.getElementById("summary");
+
+    const show = (msg) => { if (summary) summary.textContent = msg; };
+
+    const setKey = (code) => {
+      boundCode = code;
+      if (label) label.textContent = code;
+      try { localStorage.setItem(STORAGE, code); } catch {}
+    };
+
+    if (label) label.textContent = boundCode;
+
+    const listenOnce = () => {
+      if (!btnBind) return;
+
+      btnBind.textContent = "Listening…";
+      btnBind.disabled = true;
+      show("Listening: press any key now (Esc cancels).");
+
+      const onKey = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+
+        document.removeEventListener("keydown", onKey, true);
+        btnBind.textContent = "Bind";
+        btnBind.disabled = false;
+
+        if (e.code === "Escape") { show("Fullscreen key bind canceled."); return; }
+
+        const bad = new Set(["ShiftLeft","ShiftRight","ControlLeft","ControlRight","AltLeft","AltRight","MetaLeft","MetaRight"]);
+        if (bad.has(e.code)) { show("Pick a non-modifier key."); return; }
+
+        setKey(e.code);
+        show(`Fullscreen key set to: ${e.code}`);
+      };
+
+      document.addEventListener("keydown", onKey, true);
+    };
+
+    // Bind / Clear buttons
+    if (btnBind) {
+      btnBind.addEventListener("pointerdown", (e) => { e.preventDefault(); listenOnce(); });
+      btnBind.addEventListener("click", (e) => { e.preventDefault(); listenOnce(); });
+    }
+    if (btnClear) {
+      btnClear.addEventListener("click", () => { setKey("Home"); show("Fullscreen key reset to Home."); });
+    }
+
+    // Hotkey action rules:
+    // 1st press: enter fullscreen + start the round
+    // 2nd press: stop the round + exit fullscreen
+    document.addEventListener("keydown", (e) => {
+      if (e.code !== boundCode) return;
+      if (typeof isTypingInField === "function" && isTypingInField()) return;
+      e.preventDefault();
+
+      // toggleFullscreenStartStop already implements the 1st/2nd press rules
+      if (typeof toggleFullscreenStartStop === "function") toggleFullscreenStartStop();
+    }, true);
+  })();
+  // ---------- End Fullscreen key binding ----------
+
+  // ---------- Init ----------
+  renderHistory();
+  targetScale = parseFloat(tScaleEl.value || "1");
+  targets = spawnTargets(6, targetScale);
+  resetSplitsUI();
+  render();
+  modeEl.dispatchEvent(new Event("change"));
+
+  // ---------- Clear visible bullet holes whenever targets respawn ----------
+  function clearVisibleBulletHoles(){
+    try { if (run && Array.isArray(run.renderMarks)) run.renderMarks.length = 0; } catch(e){}
+  }
+  if (typeof spawnTargets === "function" && !spawnTargets.__wrappedForClearVisible) {
+    const _origSpawn = spawnTargets;
+    spawnTargets = function(...args){
+      const result = _origSpawn.apply(this, args);
+      clearVisibleBulletHoles();
+      return result;
+    };
+    spawnTargets.__wrappedForClearVisible = true;
+  }
+
+})();
+
+
+</script>
+
+<script>
+  // Apply default configuration on load (no logic changes)
+  window.addEventListener('DOMContentLoaded', () => {
+    const modeEl = document.getElementById('mode');
+    const laserEl = document.getElementById('laserMode') || document.getElementById('laserTraining') || document.getElementById('chkLaser');
+    const tgtEl = document.getElementById('targetCount') || document.getElementById('targets');
+
+    if (modeEl) { modeEl.value = 'rapid'; modeEl.dispatchEvent(new Event('change', {bubbles:true})); }
+    const ttEl = document.getElementById('targetType');
+    if (ttEl) { ttEl.value = 'silhouette'; ttEl.dispatchEvent(new Event('change', {bubbles:true})); }
+    if (laserEl) { laserEl.checked = true; laserEl.dispatchEvent(new Event('change', {bubbles:true})); }
+    if (tgtEl) { 
+      if (tgtEl.tagName === 'SELECT') tgtEl.value = '1';
+      else tgtEl.value = 1;
+      tgtEl.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+  });
+</script>
+
+</body>
+</html>
